@@ -9,6 +9,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Docker Meta
+        id: docker_meta
         uses: crazy-max/ghaction-docker-meta@v1
         with:
           images: fuhrmeister/parser-sdk-nodejs
