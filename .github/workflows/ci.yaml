@@ -30,8 +30,8 @@ jobs:
       - name: Build and Push
         uses: docker/build-push-action@v2
         with:
-          context: .
-          file: ./parser-sdk/nodejs/Dockerfile
+          context: ./parser-sdk/nodejs
+          file: ./Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
