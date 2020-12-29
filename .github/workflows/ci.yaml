@@ -34,4 +34,4 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64, linux/arm64
           push: true
-          tags: ${{ steps.docker_meta.output.tags }}
+          tags: ${{ steps.docker_meta.outputs.tags }}
