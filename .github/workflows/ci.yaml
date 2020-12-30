@@ -16,8 +16,8 @@ jobs:
           images: fuhrmeistery/parser-sdk-nodejs
           tag-sha: true
           tag-custom: ci-local
-          tag-semver: {{ version }}
-
+          tag-semver: |
+            {{ version }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
