@@ -21,3 +21,6 @@
 *.iml
 *.ipr
 out/
+
+### VIM
+*.swp
