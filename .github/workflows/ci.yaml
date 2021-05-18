@@ -115,10 +115,27 @@ jobs:
           path: ./${{ matrix.sdk }}-sdk_img
           retention-days: 1
 
+  # ---- Detect Changes ----
+
+  changes:
+    runs-on: ubuntu-latest
+    steps:
+      - id: changes
+        uses: trilom/file-changes-action@v1.2.4
+      - run: |
+            cat $HOME/files.json
+            cat $HOME/files_modified.json
+            cat $HOME/files_added.json
+            cat $HOME/files_removed.json
+            echo '${{ steps.file_changes.outputs.files}}'
+            echo '${{ steps.file_changes.outputs.files_modified}}'
+            echo '${{ steps.file_changes.outputs.files_added}}'
+            echo '${{ steps.file_changes.outputs.files_removed}}'
+
   # ---- Scanners ----
 
   third-party-scanner:
-    needs: [sdk, core]
+    needs: [changes, sdk, core]
     name: "3rd Party Scanner"
     runs-on: ubuntu-latest
     strategy:
@@ -130,6 +147,7 @@ jobs:
           - 1.19.4
           - 1.18.8
           - 1.17.11
+    if: contains(needs.changes.files, "scanners/${{ matrix.scanner }}")
     steps:
       - name: Checkout
         uses: actions/checkout@master
