@@ -275,7 +275,7 @@ jobs:
 
       # ---- Debuging Cluster on Failure ----
 
-      - name: Inspect Post Failure
+      - name: Inspect Namespaces Post Failure
         if: failure()
         run: |
           echo "List all 'HelmCharts' in all namespaces"
@@ -286,8 +286,13 @@ jobs:
           kubectl -n integration-tests get jobs -o wide --all-namespaces
           echo "List all 'Pods' in all namespaces"
           kubectl -n integration-tests get pods -o wide --all-namespaces
+
+      - name: Inspect Scan/Parse Definition
+        if: failure()
+        run: |
           echo "Describe ${{ matrix.scanner }}"
           kubectl -n integration-tests describe scantype ${{ matrix.scanner }}
+          echo "Describe Parser For ${{ matrix.scanner }}"
           kubectl -n integration-tests describe parsedefinition ${{ matrix.scanner }}
 
       - name: "Inspect Operator"
