@@ -133,6 +133,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@master
+        with:
+          fetch-depth: 50
+
+      - name: Detect Changes
+        id: changed
+        uses: marceloprado/has-changed-path@v1
+        with:
+          paths: scanners/${{ matrix.scanner }}
 
       - name: Install Scanner Dependencies
         run: npm ci
@@ -147,11 +155,13 @@ jobs:
     # ---- Download Artifacts ----
 
       - name: Download all workflow run artifacts
+        if: steps.changed.outputs.changed == 'true'
         uses: actions/download-artifact@v2
 
     # ---- Load SDK Image Into Docker
 
       - name: Load Images
+        if: steps.changed.outputs.changed == 'true'
         run: |
           docker load -i parser-sdk/parser-sdk_img
           docker images
@@ -159,9 +169,11 @@ jobs:
     # ---- Build Container Image ----
 
       - name: "Set `baseImageTag` To Commit Hash"
+        if: steps.changed.outputs.changed == 'true'
         run: echo "baseImageTag=sha-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Docker Meta Parser Image
+        if: steps.changed.outputs.changed == 'true'
         id: docker_meta_parser
         uses: crazy-max/ghaction-docker-meta@v1
         with:
@@ -171,11 +183,13 @@ jobs:
             {{ version }}
 
       - name: Set Image Tag To Scanner Version
+        if: steps.changed.outputs.changed == 'true'
         uses: mikefarah/yq@v4.4.1
         with:
           cmd: echo scannerVersion=$(yq e .appVersion scanners/${{ matrix.scanner }}/Chart.yaml) >> $GITHUB_ENV
 
       - name: Docker Meta Scanner Image
+        if: steps.changed.outputs.changed == 'true'
         id: docker_meta_scanner
         uses: crazy-max/ghaction-docker-meta@v1
         with:
@@ -185,11 +199,13 @@ jobs:
           tag-custom: ${{ env.scannerVersion }}
 
       - name: Set up Docker Buildx
+        if: steps.changed.outputs.changed == 'true'
         uses: docker/setup-buildx-action@v1
         with:
           driver: docker
 
       - name: Build ${{ matrix.scanner }} Parser Image
+        if: steps.changed.outputs.changed == 'true'
         uses: docker/build-push-action@v2
         with:
           context: ./scanners/${{ matrix.scanner }}/parser
@@ -203,6 +219,7 @@ jobs:
           labels: ${{ steps.docker_meta_parser.outputs.labels }}
 
       - name: Build ${{ matrix.scanner }} Scanner Image
+        if: steps.changed.outputs.changed == 'true'
         uses: docker/build-push-action@v2
         with:
           context: ./scanners/${{ matrix.scanner }}/scanner
@@ -215,6 +232,7 @@ jobs:
           labels: ${{ steps.docker_meta_scanner.outputs.labels }}
 
       - name: Export Images
+        if: steps.changed.outputs.changed == 'true'
         # This is needed because buildx currently does not support exporting images
         # when using the docker driver
         run: |
@@ -225,13 +243,16 @@ jobs:
      # ---- Setup Kind Cluster ----
 
       - name: Setup Kind Cluster
+        if: steps.changed.outputs.changed == 'true'
         run: kind create cluster --image kindest/node:v${{ matrix.k8sVersion }} --wait 3m
       - name: Inspect Cluster
+        if: steps.changed.outputs.changed == 'true'
         run: |
           kubectl config current-context
           kubectl get node
 
       - name: Load Images Into Cluster
+        if: steps.changed.outputs.changed == 'true'
         run: |
 
           kind load image-archive ./scanner-${{ matrix.scanner }}.tar
@@ -240,9 +261,11 @@ jobs:
           kind load image-archive ./lurcher/lurcher_img
 
       - name: Debug Images Loaded Into Kind
+        if: steps.changed.outputs.changed == 'true'
         run: docker exec kind-control-plane crictl images
 
       - name: Install Operator
+        if: steps.changed.outputs.changed == 'true'
         run: |
 
           kubectl create ns securecodebox-system
@@ -255,6 +278,7 @@ jobs:
             --set="lurcher.image.tag=sha-$(git rev-parse --short HEAD)" \
             --set="lurcher.image.pullPolicy=Never"
       - name: Inspect Operator
+        if: steps.changed.outputs.changed == 'true'
         run: |
            echo "Deployment in namespace 'securecodebox-system'"
            kubectl -n securecodebox-system get deployments
@@ -263,6 +287,7 @@ jobs:
            echo "Operator Startup Logs"
            kubectl -n securecodebox-system logs deployment/securecodebox-controller-manager
       - name: Install ${{ matrix.scanner }}
+        if: steps.changed.outputs.changed == 'true'
         run: |
           helm -n integration-tests install ${{ matrix.scanner }} ./scanners/${{ matrix.scanner }} \
             --set="image.tag=sha-$(git rev-parse --short HEAD)" \
@@ -270,9 +295,11 @@ jobs:
             --set="image.pullPolicy=Never" \
             --set="parserImage.imagePullPolicy=Never"
       - name: Install Test Dependencies
+        if: steps.changed.outputs.changed == 'true'
         run: npm ci
         working-directory: ./tests/integration
       - name: Run Tests
+        if: steps.changed.outputs.changed == 'true'
         run: npx jest --ci --color scanner/${{ matrix.scanner }}
         working-directory: ./tests/integration
 
