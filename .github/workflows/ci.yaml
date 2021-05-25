@@ -143,12 +143,14 @@ jobs:
           paths: scanners/${{ matrix.scanner }}
 
       - name: Install Scanner Dependencies
+        if: steps.changed.outputs.changed == 'true'
         run: npm ci
         working-directory: ./scanners/${{ matrix.scanner }}/parser
 
     # ---- Unit Tests ----
 
       - name: Run Unit Tests
+        if: steps.changed.outputs.changed == 'true'
         run: npm test -- --ci --colors --coverage
         working-directory: ./scanners/${{ matrix.scanner }}/parser
 
