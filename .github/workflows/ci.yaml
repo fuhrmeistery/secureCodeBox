@@ -119,7 +119,7 @@ jobs:
 
   third-party-scanner:
     needs: [sdk, core]
-    name: "3rd Party Scanner"
+    name: "${{ matrix.scanner }} on k8s ${{ matrix.k8sVersion }}"
     runs-on: ubuntu-latest
     strategy:
       matrix:
