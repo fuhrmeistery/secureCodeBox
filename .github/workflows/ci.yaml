@@ -343,3 +343,30 @@ jobs:
       - name: Inspect Kind Images
         if: failure()
         run: docker exec kind-control-plane crictl images
+
+  # ---- Hooks ----
+
+  hooks:
+    name: "Build | Hooks"
+    needs:
+      - core
+      - sdk
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        hook:
+          - update-field
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Scanner Dependencies
+        run: npm ci
+        working-directory: ./hooks/${{ matrix.hook }}
+
+    # ---- Unit Tests ----
+
+      - name: Run Unit Tests
+        run: npm test -- --ci --colors --coverage
+        working-directory: ./hooks/${{ matrix.hook }}
+
