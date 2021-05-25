@@ -117,6 +117,122 @@ jobs:
           path: ./${{ matrix.sdk }}-sdk_img
           retention-days: 1
 
+  test-scanner:
+    needs: [sdk, core]
+    name: "test-scan on k8s ${{ matrix.k8sVersion }}"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        k8sVersion:
+          - 1.20.0
+          - 1.19.4
+          - 1.18.8
+          - 1.17.11
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+        with:
+          fetch-depth: 50
+
+      - name: Detect Changes
+        id: changed
+        uses: marceloprado/has-changed-path@v1
+        with:
+          paths: scanners/test-scan
+
+      - name: Install Scanner Dependencies
+        run: npm ci
+        working-directory: ./scanners/test-scan/parser
+
+    # ---- Unit Tests ----
+
+      - name: Run Unit Tests
+        run: npm test -- --ci --colors --coverage
+        working-directory: ./scanners/test-scan/parser
+
+    # ---- Download Artifacts ----
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v2
+
+    # ---- Load SDK Image Into Docker
+
+      - name: Load Images
+        run: |
+          docker load -i parser-sdk/parser-sdk_img
+          docker images
+
+    # ---- Build Container Image ----
+
+      - name: "Set `baseImageTag` To Commit Hash"
+        run: echo "baseImageTag=sha-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Docker Meta Parser Image
+        id: docker_meta_parser
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          images: securecodebox/parser-test-scan
+          tag-sha: true
+          tag-semver: |
+            {{ version }}
+
+      - name: Docker Meta Scanner Image
+        id: docker_meta_scanner
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          images: securecodebox/scanner-test-scan
+          tag-sha: true
+          tag-semver: |
+            {{ version }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          driver: docker
+
+      - name: Build test-scan Parser Image
+        if: steps.changed.outputs.changed == 'true'
+        uses: docker/build-push-action@v2
+        with:
+          context: ./scanners/test-scan/parser
+          file: ./scanners/test-scan/parser/Dockerfile
+          build-args: |
+            namespace=securecodebox
+            baseImageTag=${{ env.baseImageTag }}
+          platforms: linux/amd64
+          push: false
+          tags: ${{ steps.docker_meta_parser.outputs.tags }}
+          labels: ${{ steps.docker_meta_parser.outputs.labels }}
+
+      - name: Build test-scan Scanner Image
+        if: steps.changed.outputs.changed == 'true'
+        uses: docker/build-push-action@v2
+        with:
+          context: ./scanners/test-scan/scanner
+          file: ./scanners/test-scan/scanner/Dockerfile
+          build-args: |
+            scannerVersion=${{ env.scannerVersion }}
+          platforms: linux/amd64
+          push: false
+          tags: ${{ steps.docker_meta_scanner.outputs.tags }}
+          labels: ${{ steps.docker_meta_scanner.outputs.labels }}
+
+      - name: Export Images
+        if: steps.changed.outputs.changed == 'true'
+        # This is needed because buildx currently does not support exporting images
+        # when using the docker driver
+        run: |
+          docker images
+          docker image save  securecodebox/scanner-test-scan > scanner-test-scan.tar
+          docker image save  securecodebox/parser-test-scan > parser-test-scan.tar
+
+      - name: Archive Images
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-scan-images
+          path: ./*-test-scan.tar
+          retention-days: 1
+
   # ---- Scanners ----
 
   third-party-scanner:
@@ -351,6 +467,7 @@ jobs:
     needs:
       - core
       - sdk
+      - test-scanner
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -423,6 +540,11 @@ jobs:
           docker images
           docker image save  securecodebox/${{ matrix.hook }} > ${{ matrix.scanner }}.tar
 
+    # ---- Download Artifacts ----
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v2
+
     # ---- Setup Kind Cluster ----
 
       - name: Setup Kind Cluster
@@ -437,8 +559,9 @@ jobs:
       - name: Load Images Into Cluster
         if: steps.changed.outputs.changed == 'true'
         run: |
-          kind load image-archive ./scanner-test-scan.tar
-          kind load image-archive ./parser-test-scan.tar
+          name: test-scan-images
+          kind load image-archive ./test-scan-images/scanner-test-scan.tar
+          kind load image-archive ./test-scan-images/parser-test-scan.tar
           kind load image-archive ./${{ matrix.hook }}.tar
           kind load image-archive ./operator/operator_img
           kind load image-archive ./lurcher/lurcher_img
