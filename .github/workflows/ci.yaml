@@ -140,7 +140,7 @@ jobs:
     # ---- Unit Tests ----
 
       - name: Run Unit Tests
-        run: npm test -- --ci --colors --coverage
+        run: npx jest -- --ci --colors --coverage
         working-directory: ./scanners/test-scan/parser
 
     # ---- Download Artifacts ----
