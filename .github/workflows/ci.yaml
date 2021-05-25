@@ -174,7 +174,6 @@ jobs:
           driver: docker
 
       - name: Build test-scan Parser Image
-        if: steps.changed.outputs.changed == 'true'
         uses: docker/build-push-action@v2
         with:
           context: ./scanners/test-scan/parser
@@ -188,7 +187,6 @@ jobs:
           labels: ${{ steps.docker_meta_parser.outputs.labels }}
 
       - name: Build test-scan Scanner Image
-        if: steps.changed.outputs.changed == 'true'
         uses: docker/build-push-action@v2
         with:
           context: ./scanners/test-scan/scanner
@@ -201,7 +199,6 @@ jobs:
           labels: ${{ steps.docker_meta_scanner.outputs.labels }}
 
       - name: Export Images
-        if: steps.changed.outputs.changed == 'true'
         # This is needed because buildx currently does not support exporting images
         # when using the docker driver
         run: |
