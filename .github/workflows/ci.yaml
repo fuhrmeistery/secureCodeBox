@@ -121,13 +121,6 @@ jobs:
     needs: [sdk, core]
     name: "test-scan on k8s ${{ matrix.k8sVersion }}"
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        k8sVersion:
-          - 1.20.0
-          - 1.19.4
-          - 1.18.8
-          - 1.17.11
     steps:
       - name: Checkout
         uses: actions/checkout@master
