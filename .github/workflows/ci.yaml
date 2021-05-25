@@ -133,16 +133,6 @@ jobs:
         with:
           paths: scanners/test-scan
 
-      - name: Install Scanner Dependencies
-        run: npm ci
-        working-directory: ./scanners/test-scan/parser
-
-    # ---- Unit Tests ----
-
-      - name: Run Unit Tests
-        run: npx jest -- --ci --colors --coverage
-        working-directory: ./scanners/test-scan/parser
-
     # ---- Download Artifacts ----
 
       - name: Download all workflow run artifacts
