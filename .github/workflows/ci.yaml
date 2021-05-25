@@ -347,7 +347,7 @@ jobs:
   # ---- Hooks ----
 
   hooks:
-    name: "Build | Hooks"
+    name: "${{ matrix.hook }} on k8s ${{ matrix.k8sVersion }} "
     needs:
       - core
       - sdk
@@ -356,6 +356,8 @@ jobs:
       matrix:
         hook:
           - update-field
+        k8sVersion:
+          - 1.20.0
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -421,3 +423,97 @@ jobs:
           docker images
           docker image save  securecodebox/${{ matrix.hook }} > ${{ matrix.scanner }}.tar
 
+    # ---- Setup Kind Cluster ----
+
+      - name: Setup Kind Cluster
+        if: steps.changed.outputs.changed == 'true'
+        run: kind create cluster --image kindest/node:v${{ matrix.k8sVersion }} --wait 3m
+      - name: Inspect Cluster
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          kubectl config current-context
+          kubectl get node
+
+      - name: Load Images Into Cluster
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          kind load image-archive ./scanner-test-scan.tar
+          kind load image-archive ./parser-test-scan.tar
+          kind load image-archive ./${{ matrix.hook }}.tar
+          kind load image-archive ./operator/operator_img
+          kind load image-archive ./lurcher/lurcher_img
+
+      - name: Debug Images Loaded Into Kind
+        if: steps.changed.outputs.changed == 'true'
+        run: docker exec kind-control-plane crictl images
+
+      - name: Install Operator
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          kubectl create ns securecodebox-system
+          kubectl create ns integration-tests
+          rm operator/operator_img
+          rm lurcher/lurcher_img
+          helm -n securecodebox-system install securecodebox-operator ./operator \
+            --set="image.tag=sha-$(git rev-parse --short HEAD)" \
+            --set="image.pullPolicy=Never" \
+            --set="lurcher.image.tag=sha-$(git rev-parse --short HEAD)" \
+            --set="lurcher.image.pullPolicy=Never"
+      - name: Inspect Operator
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+           echo "Deployment in namespace 'securecodebox-system'"
+           kubectl -n securecodebox-system get deployments
+           echo "Pods in namespace 'securecodebox-system'"
+           kubectl -n securecodebox-system get pods
+           echo "Operator Startup Logs"
+           kubectl -n securecodebox-system logs deployment/securecodebox-controller-manager
+      - name: Install ${{ matrix.hook }}
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          helm -n integration-tests install ${{ matrix.hook }} ./hooks/${{ matrix.hook }} \
+            --set="image.tag=sha-$(git rev-parse --short HEAD)" \
+            --set="image.pullPolicy=Never"
+      - name: Install Test Dependencies
+        if: steps.changed.outputs.changed == 'true'
+        run: npm ci
+        working-directory: ./tests/integration
+      - name: Run Tests
+        if: steps.changed.outputs.changed == 'true'
+        run: npx jest --ci --color hooks/${{ matrix.hook }}
+        working-directory: ./tests/integration
+
+      # ---- Debuging Cluster on Failure ----
+
+      - name: Inspect Namespaces Post Failure
+        if: failure()
+        run: |
+          echo "List all 'HelmCharts' in all namespaces"
+          helm list --all-namespaces
+          echo "List all 'Scans' in all namespaces"
+          kubectl -n integration-tests get scan -o wide --all-namespaces
+          echo "List all 'Jobs' in all namespaces"
+          kubectl -n integration-tests get jobs -o wide --all-namespaces
+          echo "List all 'Pods' in all namespaces"
+          kubectl -n integration-tests get pods -o wide --all-namespaces
+
+      - name: Inspect Hook Definition
+        if: failure()
+        run: |
+          echo "Describe ${{ matrix.hook }}"
+          kubectl -n integration-tests describe scancompletionhook ${{ matrix.hook }}
+
+      - name: "Inspect Operator"
+        if: failure()
+        run: |
+          echo "Deployment in namespace 'securecodebox-system'"
+          kubectl -n securecodebox-system get deployments
+          kubectl -n securecodebox-system describe deployments
+          echo "Deployment in namespace 'securecodebox-system'"
+          kubectl -n securecodebox-system get pods
+          echo "Operator Startup Logs"
+          kubectl -n securecodebox-system logs deployment/securecodebox-controller-manager
+
+      - name: Inspect Kind Images
+        if: failure()
+        run: docker exec kind-control-plane crictl images
