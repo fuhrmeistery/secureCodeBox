@@ -518,7 +518,7 @@ jobs:
         # when using the docker driver
         run: |
           docker images
-          docker image save  securecodebox/${{ matrix.hook }} > ${{ matrix.scanner }}.tar
+          docker image save  securecodebox/${{ matrix.hook }} > ${{ matrix.hook }}.tar
 
     # ---- Download Artifacts ----
 
