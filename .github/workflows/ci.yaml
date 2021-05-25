@@ -531,16 +531,13 @@ jobs:
     # ---- Setup Kind Cluster ----
 
       - name: Setup Kind Cluster
-        if: steps.changed.outputs.changed == 'true'
         run: kind create cluster --image kindest/node:v${{ matrix.k8sVersion }} --wait 3m
       - name: Inspect Cluster
-        if: steps.changed.outputs.changed == 'true'
         run: |
           kubectl config current-context
           kubectl get node
 
       - name: Load Images Into Cluster
-        if: steps.changed.outputs.changed == 'true'
         run: |
           name: test-scan-images
           kind load image-archive ./test-scan-images/scanner-test-scan.tar
@@ -550,11 +547,9 @@ jobs:
           kind load image-archive ./lurcher/lurcher_img
 
       - name: Debug Images Loaded Into Kind
-        if: steps.changed.outputs.changed == 'true'
         run: docker exec kind-control-plane crictl images
 
       - name: Install Operator
-        if: steps.changed.outputs.changed == 'true'
         run: |
           kubectl create ns securecodebox-system
           kubectl create ns integration-tests
@@ -566,7 +561,6 @@ jobs:
             --set="lurcher.image.tag=sha-$(git rev-parse --short HEAD)" \
             --set="lurcher.image.pullPolicy=Never"
       - name: Inspect Operator
-        if: steps.changed.outputs.changed == 'true'
         run: |
            echo "Deployment in namespace 'securecodebox-system'"
            kubectl -n securecodebox-system get deployments
@@ -575,17 +569,14 @@ jobs:
            echo "Operator Startup Logs"
            kubectl -n securecodebox-system logs deployment/securecodebox-controller-manager
       - name: Install ${{ matrix.hook }}
-        if: steps.changed.outputs.changed == 'true'
         run: |
           helm -n integration-tests install ${{ matrix.hook }} ./hooks/${{ matrix.hook }} \
             --set="image.tag=sha-$(git rev-parse --short HEAD)" \
             --set="image.pullPolicy=Never"
       - name: Install Test Dependencies
-        if: steps.changed.outputs.changed == 'true'
         run: npm ci
         working-directory: ./tests/integration
       - name: Run Tests
-        if: steps.changed.outputs.changed == 'true'
         run: npx jest --ci --color hooks/${{ matrix.hook }}
         working-directory: ./tests/integration
 
