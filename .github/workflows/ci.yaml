@@ -539,6 +539,8 @@ jobs:
 
       - name: Load Images Into Cluster
         run: |
+          ls -l
+          ls -l ./test-scan-images
           kind load image-archive ./test-scan-images/scanner-test-scan.tar
           kind load image-archive ./test-scan-images/parser-test-scan.tar
           kind load image-archive ./${{ matrix.hook }}.tar
