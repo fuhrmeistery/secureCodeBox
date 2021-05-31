@@ -575,7 +575,10 @@ jobs:
         run: npm ci
         working-directory: ./tests/integration
       - name: Run Tests
-        run: npx jest --ci --color hooks/${{ matrix.hook }}
+        run: |
+          pwd
+          ls
+          npx jest --ci --color hooks/${{ matrix.hook }}
         working-directory: ./tests/integration
 
       # ---- Debuging Cluster on Failure ----
