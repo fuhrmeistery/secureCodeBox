@@ -578,6 +578,7 @@ jobs:
         run: |
           pwd
           ls
+          npm ci
           npx jest --ci --color hooks/${{ matrix.hook }}
         working-directory: ./tests/integration
 
