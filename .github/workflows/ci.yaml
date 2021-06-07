@@ -452,7 +452,7 @@ jobs:
     strategy:
       matrix:
         hook:
-          - update-field
+          - notification-hook
         k8sVersion:
           - 1.20.0
     steps:
